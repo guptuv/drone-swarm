@@ -1,0 +1,23 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "drone-swarm-robotics"
+version = "2.0.0"
+description = "Drone swarm robotics simulator: flocking, obstacle avoidance, formation control, search & rescue, coverage, consensus and more"
+readme = "README.md"
+requires-python = ">=3.9"
+license = { text = "MIT" }
+authors = [{ name = "Yuvraj Gupta" }]
+dependencies = ["numpy>=1.24", "scipy>=1.10", "pandas>=2.0", "matplotlib>=3.7", "pillow>=9.0"]
+
+[project.optional-dependencies]
+dev = ["pytest>=7"]
+notebook = ["ipython"]
+
+[tool.setuptools]
+packages = ["drone_swarm"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
