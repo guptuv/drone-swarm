@@ -1,0 +1,4 @@
+method,makespan,total
+auction,145.0,598.2
+greedy nearest,362.9,469.9
+random,247.4,978.3
