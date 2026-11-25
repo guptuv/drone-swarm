@@ -1,0 +1,2 @@
+phase,duration_s,min_sep_m,near_misses,avg_polarization,final_form_err_m,battery_end
+boids flocking,34.9,3.05,0,0.87,,96.13

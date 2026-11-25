@@ -1,0 +1,2 @@
+phase,duration_s,min_sep_m,near_misses,avg_polarization,final_form_err_m,battery_end
+navigate + avoid,20.4,1.42,0,0.94,,97.3

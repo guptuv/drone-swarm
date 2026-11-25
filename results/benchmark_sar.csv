@@ -1,0 +1,7 @@
+scenario,strategy,success_rate,time_all_mean_s,time_all_std_s,mean_find_time_s,coverage_pct
+"A: 100x100 m, 12 drones",lawnmower,1.0,33.3,5.7,21.1,88.5
+"A: 100x100 m, 12 drones",pso,1.0,48.2,8.0,30.0,54.6
+"A: 100x100 m, 12 drones",random,1.0,42.7,27.2,24.4,73.4
+"B: 200x200 m, 10 drones",lawnmower,1.0,146.0,54.2,84.4,81.7
+"B: 200x200 m, 10 drones",pso,1.0,89.9,9.5,56.8,54.7
+"B: 200x200 m, 10 drones",random,1.0,286.4,138.8,111.7,81.9

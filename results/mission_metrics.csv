@@ -1,0 +1,7 @@
+phase,duration_s,min_sep_m,near_misses,avg_polarization,final_form_err_m,battery_end
+1 takeoff (grid),7.9,2.99,0,0.97,0.18,99.19
+2 flock to WP1,20.4,2.06,0,0.91,,96.49
+3 circle survey,14.9,2.39,0,0.33,0.01,95.2
+4 failure + re-plan,9.9,2.23,0,0.4,0.01,94.4
+5 helix,14.9,3.78,0,0.09,0.0,93.16
+6 V to landing zone,19.1,1.52,0,0.79,0.08,90.96
