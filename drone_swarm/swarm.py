@@ -1,24 +1,27 @@
-"""DroneSwarm: Boids flocking, obstacle avoidance, formation control, fault tolerance."""
+"""DroneSwarm: Boids flocking, obstacle avoidance, formation control, fault tolerance.
+
+Optional extensions (all off by default, so the base behaviour is unchanged):
+    sw.dynamics           = QuadrotorDynamics(n)      # thrust / attitude model instead of point mass
+    sw.wind               = Wind(...)                 # mean wind + gusts
+    sw.comms              = CommModel(...)            # range, latency, packet loss for neighbour info
+    sw.gps_noise          = 0.5                       # std of position measurement noise (m)
+    sw.moving_obstacles   = [MovingObstacle(...)]     # dynamic obstacles, predictive avoidance
+    sw.team               = np.array([...])           # several swarms sharing the airspace
+    sw.goal               = (n, 3) array              # per-drone goals (e.g. team goals)
+"""
 import numpy as np
 import pandas as pd
-import matplotlib.pyplot as plt
-from matplotlib import animation
-from dataclasses import dataclass
 from scipy.optimize import linear_sum_assignment
 from scipy.spatial.distance import cdist
 from .core import SwarmConfig, Building, clip_norm, unit
 from .formations import FORMATIONS
 
-# ==============================================================
-#  DRONE SWARM  (vectorised point-mass quadrotor model)
-#  modes: 'flock'  -> Boids + goal seeking
-#         'formation' -> PD control to Hungarian-assigned slots
-#  always on: building avoidance, boundary walls, min altitude
-# ==============================================================
+
 class DroneSwarm:
     def __init__(self, cfg: SwarmConfig, start_center=(12, 12, 8), spread=6.0, seed=0):
         self.cfg, self.rng = cfg, np.random.default_rng(seed)
         n = cfg.n_drones
+        self.n = n
         self.W = np.array(cfg.world, float)
         self.pos = np.array(start_center, float) + self.rng.normal(0, spread, (n, 3))
         self.pos[:, 2] = np.clip(self.pos[:, 2], cfg.min_altitude, None)
@@ -28,19 +31,51 @@ class DroneSwarm:
         self.buildings, self.goal = [], None
         self.mode, self.phase = 'flock', 'start'
         self.form_fn = self.form_off = self.form_center = self.form_goal = None
+        # ---- extensions (off by default) ----
+        self.dynamics = None
+        self.wind = None
+        self.comms = None
+        self.gps_noise = 0.0
+        self.moving_obstacles = []
+        self.team = np.zeros(n, int)
+        self.predictive_avoidance = False                  # reciprocal CPA avoidance between all drones
+        # ---- bookkeeping ----
         self.t = 0.0
         self.traj, self.alive_traj, self.target_traj, self.log = [], [], [], []
+        self.mob_traj = []
         self.building_hits = 0
+        self.obstacle_hits = 0
         self._record(self._pairwise()[1])
 
     # ---------- neighbourhood ----------
-    def _pairwise(self):
-        diff = self.pos[:, None, :] - self.pos[None, :, :]          # i - j
+    def _pairwise(self, pos=None):
+        pos = self.pos if pos is None else pos
+        diff = pos[:, None, :] - pos[None, :, :]          # i - j
         dist = np.linalg.norm(diff, axis=-1)
         np.fill_diagonal(dist, np.inf)
         dist[~self.alive, :] = np.inf
         dist[:, ~self.alive] = np.inf
         return diff, dist
+
+    def _perceived(self):
+        """What each drone believes about its neighbours.
+
+        Returns (diff, dist, nvel) where nvel[i, j] is drone j's velocity as known by drone i.
+        Separation uses on-board sensing (true relative position + GPS noise);
+        alignment / cohesion use communicated states (possibly delayed / dropped).
+        """
+        est = self.pos if self.gps_noise == 0 else self.pos + self.rng.normal(0, self.gps_noise, self.pos.shape)
+        sdiff, sdist = self._pairwise(est)
+        if self.comms is None:
+            return (sdiff, sdist), (sdiff, sdist, np.broadcast_to(self.vel[None], (self.n, self.n, 3)))
+        bpos, bvel, known = self.comms.update(self, est)
+        cdiff = est[:, None, :] - bpos
+        cdist_ = np.linalg.norm(cdiff, axis=-1)
+        cdist_[~known] = np.inf
+        np.fill_diagonal(cdist_, np.inf)
+        cdist_[~self.alive, :] = np.inf
+        cdist_[:, ~self.alive] = np.inf
+        return (sdiff, sdist), (cdiff, cdist_, bvel)
 
     # ---------- Boids rules ----------
     def separation(self, diff, dist, radius=None):
@@ -51,23 +86,31 @@ class DroneSwarm:
         steer = unit(push) * self.cfg.max_speed - self.vel
         return np.where(has, clip_norm(steer, self.cfg.max_accel), 0.0)
 
-    def alignment(self, dist):
-        nb = dist < self.cfg.neighbor_radius
+    def _same_team(self, dist):
+        return (dist < self.cfg.neighbor_radius) & (self.team[:, None] == self.team[None, :])
+
+    def alignment(self, dist, nvel=None):
+        nvel = np.broadcast_to(self.vel[None], (self.n, self.n, 3)) if nvel is None else nvel
+        nb = self._same_team(dist)
         cnt = nb.sum(1, keepdims=True)
-        avg = (nb[..., None] * self.vel[None]).sum(1) / np.maximum(cnt, 1)
+        avg = (nb[..., None] * nvel).sum(1) / np.maximum(cnt, 1)
         steer = unit(avg) * self.cfg.max_speed - self.vel
         return np.where(cnt > 0, clip_norm(steer, self.cfg.max_accel), 0.0)
 
-    def cohesion(self, dist):
-        nb = dist < self.cfg.neighbor_radius
+    def cohesion(self, dist, diff=None):
+        nb = self._same_team(dist)
         cnt = nb.sum(1, keepdims=True)
-        center = (nb[..., None] * self.pos[None]).sum(1) / np.maximum(cnt, 1)
-        steer = unit(center - self.pos) * self.cfg.max_speed - self.vel
+        if diff is None:
+            center = (nb[..., None] * self.pos[None]).sum(1) / np.maximum(cnt, 1)
+            to_c = center - self.pos
+        else:                                           # relative form works with perceived states
+            to_c = -(nb[..., None] * diff).sum(1) / np.maximum(cnt, 1)
+        steer = unit(to_c) * self.cfg.max_speed - self.vel
         return np.where(cnt > 0, clip_norm(steer, self.cfg.max_accel), 0.0)
 
     def seek(self, target, slow_radius=20.0):
         d = target - self.pos
-        dn = np.linalg.norm(d, axis=1, keepdims=True)
+        dn = np.linalg.norm(d, axis=-1, keepdims=True)
         desired = unit(d) * self.cfg.max_speed * np.minimum(1.0, dn / slow_radius)
         return clip_norm(desired - self.vel, self.cfg.max_accel)
 
@@ -90,6 +133,43 @@ class DroneSwarm:
             acc[:, :2] += (radial * 3.0 + tang * sgn * 1.5) * strength[:, None] * self.cfg.max_accel
             self.building_hits += int(((surf < 0) & below & self.alive).sum())
         return acc
+
+    def avoid_moving(self, horizon=3.0):
+        """Predictive (velocity-obstacle style) avoidance of moving spheres."""
+        acc = np.zeros_like(self.pos)
+        for ob in self.moving_obstacles:
+            rel_p = self.pos - ob.pos                       # obstacle -> drone
+            rel_v = self.vel - ob.vel
+            tca = np.clip(-(rel_p * rel_v).sum(1) / ((rel_v ** 2).sum(1) + 1e-9), 0, horizon)
+            miss = rel_p + rel_v * tca[:, None]             # separation at closest approach
+            md = np.linalg.norm(miss, axis=1)
+            safe = ob.r + self.cfg.obs_margin
+            danger = (md < safe) & self.alive
+            urgency = np.where(danger, (safe - md) / safe * (1 - tca / horizon) + 0.3, 0.0)
+            acc += unit(miss) * urgency[:, None] * self.cfg.max_accel * 3
+            cur = np.linalg.norm(rel_p, axis=1)
+            self.obstacle_hits += int(((cur < ob.r) & self.alive).sum())
+        return acc
+
+    def avoid_agents(self, horizon=2.5, safe=4.0, other_team_only=True):
+        """Reciprocal predictive avoidance between drones (closest point of approach)
+        with a right-hand rule so head-on encounters always pass on the same side."""
+        rel_p = self.pos[:, None] - self.pos[None]               # j -> i
+        rel_v = self.vel[:, None] - self.vel[None]
+        tca = np.clip(-(rel_p * rel_v).sum(-1) / ((rel_v ** 2).sum(-1) + 1e-9), 0, horizon)
+        miss = rel_p + rel_v * tca[..., None]
+        md = np.linalg.norm(miss, axis=-1)
+        mask = self.alive[:, None] & self.alive[None, :]
+        np.fill_diagonal(mask, False)
+        if other_team_only:
+            mask &= self.team[:, None] != self.team[None, :]
+        danger = mask & (md < safe) & ((rel_p * rel_v).sum(-1) < 0)   # approaching
+        if not danger.any():
+            return np.zeros_like(self.pos)
+        urg = np.where(danger, (safe - md) / safe * (1 - tca / horizon) + 0.2, 0.0)
+        right = np.cross(self.vel, [0, 0, 1.0])                  # each drone's right-hand side
+        push = unit(miss) + 0.8 * unit(right)[:, None, :]
+        return (push * urg[..., None]).sum(1) * self.cfg.max_accel * 1.5
 
     def boundaries(self):
         m, acc = self.cfg.bound_margin, np.zeros_like(self.pos)
@@ -150,34 +230,61 @@ class DroneSwarm:
         return dead
 
     # ---------- simulation step ----------
-    def step(self):
+    def desired_acceleration(self):
         c = self.cfg
-        diff, dist = self._pairwise()
+        (sdiff, sdist), (cdiff, cdist_, nvel) = self._perceived()
         acc = np.zeros_like(self.pos)
         if self.mode == 'flock':
-            acc += c.w_sep * self.separation(diff, dist) + c.w_ali * self.alignment(dist) \
-                 + c.w_coh * self.cohesion(dist)
+            if self.comms is None:
+                acc += c.w_sep * self.separation(sdiff, sdist) + c.w_ali * self.alignment(sdist) \
+                     + c.w_coh * self.cohesion(sdist)
+            else:
+                acc += c.w_sep * self.separation(sdiff, sdist) + c.w_ali * self.alignment(cdist_, nvel) \
+                     + c.w_coh * self.cohesion(cdist_, cdiff)
             if self.goal is not None:
                 acc += c.w_goal * self.seek(self.goal)
         else:
-            acc += self.formation_control() + 1.5 * self.separation(diff, dist, radius=2.5)
+            acc += self.formation_control() + 1.5 * self.separation(sdiff, sdist, radius=2.5)
         acc += c.w_obs * self.avoid_buildings() + c.w_bound * self.boundaries()
-        acc = clip_norm(acc, c.max_accel * 1.5)
+        if self.moving_obstacles:
+            acc += self.avoid_moving()
+        if self.predictive_avoidance or len(np.unique(self.team)) > 1:
+            acc += self.avoid_agents(other_team_only=not self.predictive_avoidance)
+        return clip_norm(acc, c.max_accel * 1.5)
 
-        self.vel = clip_norm(self.vel + acc * c.dt, c.max_speed)
-        if self.mode == 'flock' and self.goal is None:      # birds never hover
-            sp = np.linalg.norm(self.vel, axis=1, keepdims=True)
-            self.vel = np.where(sp < c.min_speed, unit(self.vel) * c.min_speed, self.vel)
+    def step(self):
+        c = self.cfg
+        true_dist = self._pairwise()[1]
+        a_cmd = self.desired_acceleration()
+        wind = self.wind.step(c.dt, self.rng) if self.wind is not None else None
+
+        if self.dynamics is not None:                        # thrust / attitude model
+            a = self.dynamics.step(a_cmd, self.vel, c.dt, wind)
+            self.vel = self.vel + a * c.dt
+            self.vel = clip_norm(self.vel, c.max_speed * 1.3)
+        else:                                               # point mass (original model)
+            if wind is not None:
+                a_cmd = a_cmd + 0.35 * (wind - self.vel)    # aerodynamic drag towards air velocity
+            self.vel = clip_norm(self.vel + a_cmd * c.dt, c.max_speed)
+            if self.mode == 'flock' and self.goal is None:      # birds never hover
+                sp = np.linalg.norm(self.vel, axis=1, keepdims=True)
+                self.vel = np.where(sp < c.min_speed, unit(self.vel) * c.min_speed, self.vel)
         # failed drones: controlled emergency landing
         self.vel[~self.alive] = [0, 0, -3.0]
         self.pos += self.vel * c.dt
         self.pos[:, 2] = np.maximum(self.pos[:, 2], 0)
         self.vel[~self.alive & (self.pos[:, 2] <= 0)] = 0
 
-        speed = np.linalg.norm(self.vel, axis=1)
-        self.battery -= np.where(self.alive, (0.08 + 0.002 * speed ** 2) * c.dt, 0)  # % per step
+        for ob in self.moving_obstacles:
+            ob.step(c.dt, self.W)
+
+        if self.dynamics is not None:
+            self.battery -= np.where(self.alive, self.dynamics.power_pct(c.dt), 0)
+        else:
+            speed = np.linalg.norm(self.vel, axis=1)
+            self.battery -= np.where(self.alive, (0.08 + 0.002 * speed ** 2) * c.dt, 0)  # % per step
         self.t += c.dt
-        self._record(dist)
+        self._record(true_dist)
 
     def run(self, steps, phase=None, until=None):
         if phase: self.phase = phase
@@ -194,14 +301,27 @@ class DroneSwarm:
         sp = np.linalg.norm(V, axis=1)
         cen = P.mean(0)
         d = dist[np.ix_(a, a)]
+        goal_dist = np.nan
+        if self.goal is not None and self.mode == 'flock':
+            g = np.asarray(self.goal)
+            goal_dist = float(np.linalg.norm(cen - g)) if g.ndim == 1 else float(np.linalg.norm(self.pos[a] - g[a], axis=1).mean())
         row = dict(t=round(self.t, 2), phase=self.phase, alive=int(a.sum()),
                    polarization=float(np.linalg.norm(unit(V).mean(0))),
                    cohesion=float(np.linalg.norm(P - cen, axis=1).mean()),
                    min_separation=float(d.min()) if d.size > 1 else np.nan,
                    near_misses=int((d[np.triu_indices(len(d), 1)] < 1.0).sum()),
                    mean_speed=float(sp.mean()), battery=float(self.battery[a].mean()),
-                   goal_dist=float(np.linalg.norm(cen - self.goal)) if (self.goal is not None and self.mode == 'flock') else np.nan,
+                   goal_dist=goal_dist,
                    formation_error=float(np.linalg.norm(self.targets()[a] - P, axis=1).mean()) if self.mode == 'formation' else np.nan)
+        if self.moving_obstacles:
+            row['min_obstacle_dist'] = float(min(
+                (np.linalg.norm(self.pos[a] - ob.pos, axis=1) - ob.r).min() for ob in self.moving_obstacles))
+            self.mob_traj.append(np.array([ob.pos.copy() for ob in self.moving_obstacles]))
+        if len(np.unique(self.team)) > 1:
+            cross = dist[np.ix_(a, a)][self.team[a][:, None] != self.team[a][None, :]]
+            row['min_cross_team'] = float(cross.min()) if cross.size else np.nan
+        if self.comms is not None:
+            row['msg_age'] = float(self.comms.mean_age())
         self.log.append(row)
         self.traj.append(self.pos.copy())
         self.alive_traj.append(self.alive.copy())
@@ -209,4 +329,3 @@ class DroneSwarm:
 
     def df(self):
         return pd.DataFrame(self.log)
-
