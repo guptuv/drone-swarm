@@ -1,0 +1,3 @@
+strategy,known_after_100,known_after_250
+frontier + A*,0.657,1.0
+random walk,0.112,0.145

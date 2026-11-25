@@ -1,0 +1,5 @@
+policy,p_detect_60_steps,p_detect_20_steps
+random,0.065,0.016
+lawnmower,0.137,0.025
+greedy,0.524,0.182
+dqn,0.55,0.184

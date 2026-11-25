@@ -1,0 +1,9 @@
+fault,recall,false_alarm_rate,detected_runs,median_delay_s,detector
+none,,0.007,,,autoencoder
+motor,0.945,0.01,1.0,0.7,autoencoder
+gps,0.807,0.008,1.0,3.1,autoencoder
+imu,0.998,0.012,1.0,0.0,autoencoder
+none,,0.004,,,z-score rule
+motor,0.956,0.004,1.0,0.5,z-score rule
+gps,0.643,0.005,1.0,6.0,z-score rule
+imu,1.0,0.004,1.0,0.0,z-score rule

@@ -1,0 +1,3 @@
+controller,min_distance_m,arrived,violation_steps
+nominal (straight to goal),0.002,1.0,56
+CBF safety filter,2.018,1.0,0

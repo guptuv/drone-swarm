@@ -1,0 +1,9 @@
+drones,controller,success,collision_free_eps,agent_collisions,obstacle_collisions,time_s
+8,Potential field (aggressive),0.812,0.0,35.031,10.453,11.35
+8,Potential field (safe),0.672,0.75,0.906,0.547,14.721
+8,MAPPO policy,0.984,0.969,0.0,0.125,9.321
+8,MAPPO + CBF shield,0.984,1.0,0.0,0.0,10.259
+16,Potential field (aggressive),0.766,0.0,127.125,19.938,12.674
+16,Potential field (safe),0.312,0.031,8.641,1.234,16.54
+16,MAPPO policy,0.984,0.484,9.438,0.25,9.446
+16,MAPPO + CBF shield,0.734,1.0,0.0,0.0,13.139

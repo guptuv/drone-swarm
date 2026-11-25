@@ -1,0 +1,4 @@
+method,rmse_m
+GPS only (hold last fix),9.24
+IMU dead reckoning,430.0
+Kalman filter GPS+IMU,1.33
