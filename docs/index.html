@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Drone Swarm Playground</title>
+<style>
+  :root { --bg:#f6f7f9; --panel:#ffffff; --ink:#1d2330; --muted:#5b6475; --line:#dde1e8; --accent:#2563eb; --drone:#2563eb; --obs:#6b7280; --danger:#dc2626; }
+  @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --bg:#0f1218; --panel:#171b23; --ink:#e7eaf0; --muted:#9aa3b2; --line:#2a303b; --accent:#60a5fa; --drone:#60a5fa; --obs:#9ca3af; --danger:#f87171; } }
+  :root[data-theme="dark"] { --bg:#0f1218; --panel:#171b23; --ink:#e7eaf0; --muted:#9aa3b2; --line:#2a303b; --accent:#60a5fa; --drone:#60a5fa; --obs:#9ca3af; --danger:#f87171; }
+  * { box-sizing:border-box; }
+  body { margin:0; font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; background:var(--bg); color:var(--ink); }
+  header { padding:16px; max-width:1100px; margin:0 auto; }
+  h1 { font-size:1.35rem; margin:0 0 4px; }
+  header p { margin:0; color:var(--muted); font-size:.92rem; }
+  main { display:grid; grid-template-columns: 1fr 280px; gap:16px; padding:0 16px 24px; max-width:1100px; margin:0 auto; }
+  @media (max-width: 760px) { main { grid-template-columns: 1fr; } }
+  canvas { width:100%; aspect-ratio: 4/3; background:var(--panel); border:1px solid var(--line); border-radius:10px; touch-action:none; display:block; }
+  .panel { background:var(--panel); border:1px solid var(--line); border-radius:10px; padding:14px; }
+  .panel h2 { font-size:.95rem; margin:0 0 10px; }
+  label { display:flex; justify-content:space-between; font-size:.85rem; color:var(--muted); margin-top:8px; }
+  input[type=range] { width:100%; accent-color: var(--accent); }
+  .btns { display:flex; flex-wrap:wrap; gap:6px; margin-top:6px; }
+  button { border:1px solid var(--line); background:var(--bg); color:var(--ink); border-radius:7px; padding:6px 10px; font-size:.82rem; cursor:pointer; }
+  button.on { background:var(--accent); color:#fff; border-color:var(--accent); }
+  .stats { font-variant-numeric: tabular-nums; font-size:.82rem; color:var(--muted); margin-top:10px; line-height:1.6; }
+  .hint { font-size:.78rem; color:var(--muted); margin-top:10px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Drone Swarm Playground</h1>
+  <p>Boids flocking, obstacle avoidance and formation control running live in your browser. Part of <a href="https://github.com/guptuv/drone-swarm-robotics" style="color:var(--accent)">drone-swarm-robotics</a>.</p>
+</header>
+<main>
+  <canvas id="c" width="800" height="600" aria-label="swarm simulation"></canvas>
+  <div class="panel">
+    <h2>Mode</h2>
+    <div class="btns" id="modes">
+      <button data-m="flock" class="on">Flock</button>
+      <button data-m="goal">Follow cursor</button>
+      <button data-m="circle">Circle</button>
+      <button data-m="v">V shape</button>
+      <button data-m="grid">Grid</button>
+    </div>
+    <h2 style="margin-top:14px">Weights</h2>
+    <label>Separation <span id="vsep"></span></label><input id="sep" type="range" min="0" max="5" step="0.1" value="2">
+    <label>Alignment <span id="vali"></span></label><input id="ali" type="range" min="0" max="3" step="0.1" value="1">
+    <label>Cohesion <span id="vcoh"></span></label><input id="coh" type="range" min="0" max="3" step="0.1" value="0.7">
+    <label>Drones <span id="vn"></span></label><input id="n" type="range" min="5" max="150" step="1" value="60">
+    <div class="btns" style="margin-top:12px">
+      <button id="fail">Fail 20%</button>
+      <button id="clear">Clear obstacles</button>
+      <button id="predator">Predator: off</button>
+    </div>
+    <div class="stats" id="stats"></div>
+    <p class="hint">Click / tap the canvas to place a building. Failed drones turn red and the formation re-plans with the rest.</p>
+  </div>
+</main>
+<script>
+(() => {
+  const cv = document.getElementById('c'), ctx = cv.getContext('2d');
+  const W = cv.width, H = cv.height;
+  const P = { maxSpeed: 3.2, maxAcc: 0.12, nb: 60, sepR: 22 };
+  let drones = [], obstacles = [{x:300,y:250,r:40},{x:560,y:380,r:30}], mode = 'flock';
+  let mouse = {x:W/2, y:H/2}, predator = false, slots = null;
+  const $ = id => document.getElementById(id);
+  const css = v => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
+
+  function spawn(n) {
+    drones = [];
+    for (let i = 0; i < n; i++) drones.push({x: Math.random()*W, y: Math.random()*H, vx: Math.random()*2-1, vy: Math.random()*2-1, alive: true});
+    if (mode !== 'flock' && mode !== 'goal') plan();
+  }
+  function shape(n) {
+    const c = {x: W/2, y: H/2}, pts = [];
+    if (mode === 'circle') for (let i=0;i<n;i++){const a=2*Math.PI*i/n; pts.push({x:c.x+180*Math.cos(a), y:c.y+180*Math.sin(a)});}
+    if (mode === 'v') for (let i=0;i<n;i++){const k=Math.ceil(i/2), s=i%2?1:-1; pts.push({x:c.x+180-k*18, y:c.y+s*k*14});}
+    if (mode === 'grid') { const k=Math.ceil(Math.sqrt(n)); for(let i=0;i<n;i++) pts.push({x:c.x+(i%k-(k-1)/2)*30, y:c.y+(Math.floor(i/k)-(k-1)/2)*30}); }
+    return pts;
+  }
+  function plan() {     // greedy nearest-slot assignment (fast stand-in for Hungarian)
+    const alive = drones.filter(d => d.alive), pts = shape(alive.length), used = new Array(pts.length).fill(false);
+    const order = alive.map((d,i)=>i).sort((a,b)=>alive[a].x-alive[b].x);
+    slots = new Map();
+    for (const i of order) { let best=-1, bd=1e18; pts.forEach((p,j)=>{ if(!used[j]){const dd=(p.x-alive[i].x)**2+(p.y-alive[i].y)**2; if(dd<bd){bd=dd;best=j;}} }); used[best]=true; slots.set(alive[i], pts[best]); }
+  }
+  function limit(x, y, m) { const n = Math.hypot(x, y); return n > m ? [x/n*m, y/n*m] : [x, y]; }
+
+  function step() {
+    const ws = +$('sep').value, wa = +$('ali').value, wc = +$('coh').value;
+    let minSep = Infinity;
+    for (const d of drones) {
+      if (!d.alive) { d.vx *= 0.9; d.vy *= 0.9; continue; }
+      let ax = 0, ay = 0, sx=0, sy=0, axv=0, ayv=0, cx=0, cy=0, cnt=0, scnt=0;
+      for (const o of drones) {
+        if (o === d || !o.alive) continue;
+        const dx = d.x - o.x, dy = d.y - o.y, dist = Math.hypot(dx, dy);
+        if (dist < minSep) minSep = dist;
+        if (dist < P.sepR) { sx += dx/(dist*dist+1e-3); sy += dy/(dist*dist+1e-3); scnt++; }
+        if (dist < P.nb) { axv += o.vx; ayv += o.vy; cx += o.x; cy += o.y; cnt++; }
+      }
+      const steer = (tx, ty, w) => { const n=Math.hypot(tx,ty)||1; const [x,y]=limit(tx/n*P.maxSpeed-d.vx, ty/n*P.maxSpeed-d.vy, P.maxAcc); ax+=w*x; ay+=w*y; };
+      const slot = slots && slots.get(d);
+      if (mode === 'flock' || mode === 'goal' || !slot) {
+        if (scnt) steer(sx, sy, ws);
+        if (cnt) { steer(axv, ayv, wa); steer(cx/cnt-d.x, cy/cnt-d.y, wc); }
+        if (mode === 'goal') steer(mouse.x-d.x, mouse.y-d.y, 1.3);
+      } else {
+        const ex = slot.x-d.x, ey = slot.y-d.y;
+        const [dvx, dvy] = limit(ex*0.05, ey*0.05, P.maxSpeed);
+        const [fx, fy] = limit((dvx-d.vx)*0.3, (dvy-d.vy)*0.3, P.maxAcc); ax += fx; ay += fy;
+        if (scnt) steer(sx, sy, 0.6);
+      }
+      for (const ob of obstacles) {   // radial + tangential slide
+        const dx = d.x-ob.x, dy = d.y-ob.y, dist = Math.hypot(dx,dy), surf = dist-ob.r, m = 30;
+        if (surf < m) { const s = ((m-Math.max(surf,1))/m)**2, ux=dx/dist, uy=dy/dist, sg = Math.sign(-uy*d.vx+ux*d.vy)||1;
+          ax += (ux*3 - uy*sg*1.5)*s*P.maxAcc*3; ay += (uy*3 + ux*sg*1.5)*s*P.maxAcc*3; }
+      }
+      if (predator) { const dx=d.x-mouse.x, dy=d.y-mouse.y, dist=Math.hypot(dx,dy); if (dist<120) { ax += dx/dist*P.maxAcc*4*(1-dist/120); ay += dy/dist*P.maxAcc*4*(1-dist/120);} }
+      const m = 25;                    // soft walls
+      if (d.x < m) ax += P.maxAcc*2; if (d.x > W-m) ax -= P.maxAcc*2; if (d.y < m) ay += P.maxAcc*2; if (d.y > H-m) ay -= P.maxAcc*2;
+      [ax, ay] = limit(ax, ay, P.maxAcc*2);
+      [d.vx, d.vy] = limit(d.vx+ax, d.vy+ay, P.maxSpeed);
+    }
+    for (const d of drones) { d.x += d.vx; d.y += d.vy; }
+    return minSep;
+  }
+
+  function draw(minSep) {
+    ctx.clearRect(0,0,W,H);
+    ctx.fillStyle = css('--obs'); ctx.globalAlpha = 0.35;
+    for (const o of obstacles) { ctx.beginPath(); ctx.arc(o.x,o.y,o.r,0,7); ctx.fill(); }
+    ctx.globalAlpha = 1;
+    if (slots && mode !== 'flock' && mode !== 'goal') { ctx.strokeStyle = css('--muted'); for (const p of slots.values()) { ctx.beginPath(); ctx.moveTo(p.x-3,p.y-3); ctx.lineTo(p.x+3,p.y+3); ctx.moveTo(p.x+3,p.y-3); ctx.lineTo(p.x-3,p.y+3); ctx.stroke(); } }
+    for (const d of drones) {
+      const a = Math.atan2(d.vy, d.vx);
+      ctx.fillStyle = d.alive ? css('--drone') : css('--danger');
+      ctx.save(); ctx.translate(d.x, d.y); ctx.rotate(a);
+      ctx.beginPath(); ctx.moveTo(7,0); ctx.lineTo(-5,4); ctx.lineTo(-5,-4); ctx.closePath(); ctx.fill(); ctx.restore();
+    }
+    if (predator || mode === 'goal') { ctx.strokeStyle = predator ? css('--danger') : css('--accent'); ctx.beginPath(); ctx.arc(mouse.x, mouse.y, predator?14:8, 0, 7); ctx.stroke(); }
+    const alive = drones.filter(d=>d.alive);
+    let px=0, py=0; for (const d of alive){ const n=Math.hypot(d.vx,d.vy)||1; px+=d.vx/n; py+=d.vy/n; }
+    $('stats').innerHTML = `Alive: ${alive.length}/${drones.length}<br>Polarization: ${(Math.hypot(px,py)/Math.max(alive.length,1)).toFixed(2)}<br>Min separation: ${isFinite(minSep)?minSep.toFixed(1):'-'} px`;
+  }
+
+  function loop() { draw(step()); requestAnimationFrame(loop); }
+
+  for (const id of ['sep','ali','coh','n']) { const el = $(id); const out = $('v'+id); const upd = () => out.textContent = el.value; el.addEventListener('input', upd); upd(); }
+  $('n').addEventListener('change', e => spawn(+e.target.value));
+  $('modes').addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return;
+    mode = b.dataset.m; document.querySelectorAll('#modes button').forEach(x => x.classList.toggle('on', x===b));
+    slots = null; if (mode !== 'flock' && mode !== 'goal') plan(); });
+  $('fail').onclick = () => { const alive = drones.filter(d=>d.alive); alive.sort(()=>Math.random()-.5).slice(0, Math.floor(alive.length*0.2)).forEach(d=>d.alive=false); if (slots) plan(); };
+  $('clear').onclick = () => obstacles = [];
+  $('predator').onclick = e => { predator = !predator; e.target.textContent = 'Predator: ' + (predator?'on':'off'); e.target.classList.toggle('on', predator); };
+  const toCanvas = ev => { const r = cv.getBoundingClientRect(); return {x:(ev.clientX-r.left)*W/r.width, y:(ev.clientY-r.top)*H/r.height}; };
+  cv.addEventListener('pointermove', ev => mouse = toCanvas(ev));
+  cv.addEventListener('pointerdown', ev => { const p = toCanvas(ev); mouse = p; if (!predator && mode !== 'goal') obstacles.push({x:p.x, y:p.y, r:20+Math.random()*20}); });
+  spawn(+$('n').value); loop();
+})();
+</script>
+</body>
+</html>
