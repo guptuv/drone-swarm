@@ -1,0 +1,450 @@
+{
+ "mappo": [
+  {
+   "drones": 8,
+   "controller": "Potential field (aggressive)",
+   "success": 0.812,
+   "collision_free_eps": 0.0,
+   "agent_collisions": 35.031,
+   "obstacle_collisions": 10.453,
+   "time_s": 11.35
+  },
+  {
+   "drones": 8,
+   "controller": "Potential field (safe)",
+   "success": 0.672,
+   "collision_free_eps": 0.75,
+   "agent_collisions": 0.906,
+   "obstacle_collisions": 0.547,
+   "time_s": 14.721
+  },
+  {
+   "drones": 8,
+   "controller": "MAPPO policy",
+   "success": 0.984,
+   "collision_free_eps": 0.969,
+   "agent_collisions": 0.0,
+   "obstacle_collisions": 0.125,
+   "time_s": 9.321
+  },
+  {
+   "drones": 8,
+   "controller": "MAPPO + CBF shield",
+   "success": 0.984,
+   "collision_free_eps": 1.0,
+   "agent_collisions": 0.0,
+   "obstacle_collisions": 0.0,
+   "time_s": 10.259
+  },
+  {
+   "drones": 16,
+   "controller": "Potential field (aggressive)",
+   "success": 0.766,
+   "collision_free_eps": 0.0,
+   "agent_collisions": 127.125,
+   "obstacle_collisions": 19.938,
+   "time_s": 12.674
+  },
+  {
+   "drones": 16,
+   "controller": "Potential field (safe)",
+   "success": 0.312,
+   "collision_free_eps": 0.031,
+   "agent_collisions": 8.641,
+   "obstacle_collisions": 1.234,
+   "time_s": 16.54
+  },
+  {
+   "drones": 16,
+   "controller": "MAPPO policy",
+   "success": 0.984,
+   "collision_free_eps": 0.484,
+   "agent_collisions": 9.438,
+   "obstacle_collisions": 0.25,
+   "time_s": 9.446
+  },
+  {
+   "drones": 16,
+   "controller": "MAPPO + CBF shield",
+   "success": 0.734,
+   "collision_free_eps": 1.0,
+   "agent_collisions": 0.0,
+   "obstacle_collisions": 0.0,
+   "time_s": 13.139
+  }
+ ],
+ "gnn": [
+  {
+   "n": 20,
+   "controller": "expert",
+   "cost_mean": 0.526,
+   "cost_std": 0.089
+  },
+  {
+   "n": 20,
+   "controller": "local",
+   "cost_mean": 1.314,
+   "cost_std": 0.367
+  },
+  {
+   "n": 20,
+   "controller": "gnn",
+   "cost_mean": 0.962,
+   "cost_std": 0.339
+  },
+  {
+   "n": 40,
+   "controller": "expert",
+   "cost_mean": 0.549,
+   "cost_std": 0.047
+  },
+  {
+   "n": 40,
+   "controller": "local",
+   "cost_mean": 1.253,
+   "cost_std": 0.259
+  },
+  {
+   "n": 40,
+   "controller": "gnn",
+   "cost_mean": 0.906,
+   "cost_std": 0.297
+  },
+  {
+   "n": 80,
+   "controller": "expert",
+   "cost_mean": 0.588,
+   "cost_std": 0.039
+  },
+  {
+   "n": 80,
+   "controller": "local",
+   "cost_mean": 1.215,
+   "cost_std": 0.223
+  },
+  {
+   "n": 80,
+   "controller": "gnn",
+   "cost_mean": 0.785,
+   "cost_std": 0.097
+  }
+ ],
+ "dqn": [
+  {
+   "policy": "random",
+   "p_detect_60_steps": 0.065,
+   "p_detect_20_steps": 0.016
+  },
+  {
+   "policy": "lawnmower",
+   "p_detect_60_steps": 0.137,
+   "p_detect_20_steps": 0.025
+  },
+  {
+   "policy": "greedy",
+   "p_detect_60_steps": 0.524,
+   "p_detect_20_steps": 0.182
+  },
+  {
+   "policy": "dqn",
+   "p_detect_60_steps": 0.55,
+   "p_detect_20_steps": 0.184
+  }
+ ],
+ "vision": {
+  "auc": 0.9692664742469788,
+  "by_altitude": [
+   {
+    "altitude_m": 10,
+    "accuracy": 0.992,
+    "recall": 0.986,
+    "precision": 0.997,
+    "false_pos_rate": 0.003
+   },
+   {
+    "altitude_m": 20,
+    "accuracy": 0.998,
+    "recall": 0.996,
+    "precision": 1.0,
+    "false_pos_rate": 0.0
+   },
+   {
+    "altitude_m": 30,
+    "accuracy": 0.995,
+    "recall": 0.997,
+    "precision": 0.994,
+    "false_pos_rate": 0.007
+   },
+   {
+    "altitude_m": 40,
+    "accuracy": 0.957,
+    "recall": 0.959,
+    "precision": 0.952,
+    "false_pos_rate": 0.045
+   },
+   {
+    "altitude_m": 50,
+    "accuracy": 0.907,
+    "recall": 0.91,
+    "precision": 0.904,
+    "false_pos_rate": 0.097
+   },
+   {
+    "altitude_m": 60,
+    "accuracy": 0.892,
+    "recall": 0.914,
+    "precision": 0.87,
+    "false_pos_rate": 0.13
+   },
+   {
+    "altitude_m": 70,
+    "accuracy": 0.63,
+    "recall": 0.46,
+    "precision": 0.663,
+    "false_pos_rate": 0.214
+   },
+   {
+    "altitude_m": 80,
+    "accuracy": 0.622,
+    "recall": 0.622,
+    "precision": 0.582,
+    "false_pos_rate": 0.378
+   }
+  ],
+  "best_altitude": 60.0
+ },
+ "prediction": {
+  "acc": [
+   {
+    "model": "constant velocity",
+    "ADE_m": 2.317,
+    "FDE_m": 5.88
+   },
+   {
+    "model": "constant turn rate (CTRV)",
+    "ADE_m": 1.775,
+    "FDE_m": 4.529
+   },
+   {
+    "model": "LSTM",
+    "ADE_m": 0.998,
+    "FDE_m": 2.635
+   },
+   {
+    "model": "Transformer",
+    "ADE_m": 0.998,
+    "FDE_m": 2.635
+   }
+  ],
+  "avoid": [
+   {
+    "predictor": "no avoidance",
+    "loss_of_separation": 0.98,
+    "mean_min_dist": 0.595
+   },
+   {
+    "predictor": "constant velocity",
+    "loss_of_separation": 0.042,
+    "mean_min_dist": 2.656
+   },
+   {
+    "predictor": "CTRV",
+    "loss_of_separation": 0.038,
+    "mean_min_dist": 2.715
+   },
+   {
+    "predictor": "LSTM",
+    "loss_of_separation": 0.012,
+    "mean_min_dist": 2.861
+   }
+  ]
+ },
+ "faults": [
+  {
+   "fault": "none",
+   "recall": NaN,
+   "false_alarm_rate": 0.007,
+   "detected_runs": NaN,
+   "median_delay_s": NaN,
+   "detector": "autoencoder"
+  },
+  {
+   "fault": "motor",
+   "recall": 0.945,
+   "false_alarm_rate": 0.01,
+   "detected_runs": 1.0,
+   "median_delay_s": 0.7,
+   "detector": "autoencoder"
+  },
+  {
+   "fault": "gps",
+   "recall": 0.807,
+   "false_alarm_rate": 0.008,
+   "detected_runs": 1.0,
+   "median_delay_s": 3.1,
+   "detector": "autoencoder"
+  },
+  {
+   "fault": "imu",
+   "recall": 0.998,
+   "false_alarm_rate": 0.012,
+   "detected_runs": 1.0,
+   "median_delay_s": 0.0,
+   "detector": "autoencoder"
+  },
+  {
+   "fault": "none",
+   "recall": NaN,
+   "false_alarm_rate": 0.004,
+   "detected_runs": NaN,
+   "median_delay_s": NaN,
+   "detector": "z-score rule"
+  },
+  {
+   "fault": "motor",
+   "recall": 0.956,
+   "false_alarm_rate": 0.004,
+   "detected_runs": 1.0,
+   "median_delay_s": 0.5,
+   "detector": "z-score rule"
+  },
+  {
+   "fault": "gps",
+   "recall": 0.643,
+   "false_alarm_rate": 0.005,
+   "detected_runs": 1.0,
+   "median_delay_s": 6.0,
+   "detector": "z-score rule"
+  },
+  {
+   "fault": "imu",
+   "recall": 1.0,
+   "false_alarm_rate": 0.004,
+   "detected_runs": 1.0,
+   "median_delay_s": 0.0,
+   "detector": "z-score rule"
+  }
+ ],
+ "mbrl": {
+  "val_err": 0.07737960666418076,
+  "rows": [
+   {
+    "controller": "PD controller",
+    "reached": 1.0,
+    "crashed": 1.0,
+    "time_s": 6.033,
+    "min_clearance_m": -1.043
+   },
+   {
+    "controller": "MPPI + learned model",
+    "reached": 1.0,
+    "crashed": 0.0,
+    "time_s": 7.583,
+    "min_clearance_m": 1.967
+   },
+   {
+    "controller": "MPPI + true model",
+    "reached": 1.0,
+    "crashed": 0.0,
+    "time_s": 7.7,
+    "min_clearance_m": 1.965
+   }
+  ]
+ },
+ "estimation": {
+  "kf": [
+   {
+    "method": "GPS only (hold last fix)",
+    "rmse_m": 9.24
+   },
+   {
+    "method": "IMU dead reckoning",
+    "rmse_m": 430.0
+   },
+   {
+    "method": "Kalman filter GPS+IMU",
+    "rmse_m": 1.33
+   }
+  ],
+  "bias_true": [
+   0.4,
+   -0.3,
+   0.2
+  ],
+  "bias_est": [
+   0.41,
+   -0.299,
+   0.2
+  ],
+  "pf": [
+   {
+    "strategy": "active (orbit estimate)",
+    "final_err_m": 1.59,
+    "mean_err_after_40": 1.92
+   },
+   {
+    "strategy": "expanding spiral",
+    "final_err_m": 2.29,
+    "mean_err_after_40": 3.03
+   }
+  ]
+ },
+ "planning": [
+  {
+   "planner": "straight line",
+   "length_m": 92.7,
+   "collision_free": false,
+   "time_ms": NaN
+  },
+  {
+   "planner": "A* (8-connected grid)",
+   "length_m": 97.61,
+   "collision_free": true,
+   "time_ms": 7.61
+  },
+  {
+   "planner": "A* + shortcut smoothing",
+   "length_m": 93.92,
+   "collision_free": true,
+   "time_ms": NaN
+  },
+  {
+   "planner": "RRT* (3000 samples)",
+   "length_m": 95.57,
+   "collision_free": true,
+   "time_ms": 2026.09
+  },
+  {
+   "planner": "RRT* + shortcut smoothing",
+   "length_m": 95.51,
+   "collision_free": true,
+   "time_ms": NaN
+  }
+ ],
+ "cbf": [
+  {
+   "controller": "nominal (straight to goal)",
+   "min_distance_m": 0.002,
+   "arrived": 1.0,
+   "violation_steps": 56
+  },
+  {
+   "controller": "CBF safety filter",
+   "min_distance_m": 2.018,
+   "arrived": 1.0,
+   "violation_steps": 0
+  }
+ ],
+ "mapping": [
+  {
+   "strategy": "frontier + A*",
+   "known_after_100": 0.657,
+   "known_after_250": 1.0
+  },
+  {
+   "strategy": "random walk",
+   "known_after_100": 0.112,
+   "known_after_250": 0.145
+  }
+ ]
+}

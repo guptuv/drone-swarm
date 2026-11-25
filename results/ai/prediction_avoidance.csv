@@ -1,0 +1,5 @@
+predictor,loss_of_separation,mean_min_dist
+no avoidance,0.98,0.595
+constant velocity,0.042,2.656
+CTRV,0.038,2.715
+LSTM,0.012,2.861

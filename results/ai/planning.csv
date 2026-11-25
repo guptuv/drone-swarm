@@ -1,0 +1,6 @@
+planner,length_m,collision_free,time_ms
+straight line,92.7,False,
+A* (8-connected grid),97.61,True,7.61
+A* + shortcut smoothing,93.92,True,
+RRT* (3000 samples),95.57,True,2026.09
+RRT* + shortcut smoothing,95.51,True,

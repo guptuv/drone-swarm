@@ -1,0 +1,5 @@
+model,ADE_m,FDE_m
+constant velocity,2.317,5.88
+constant turn rate (CTRV),1.775,4.529
+LSTM,0.998,2.635
+Transformer,0.998,2.635

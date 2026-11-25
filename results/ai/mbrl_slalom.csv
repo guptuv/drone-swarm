@@ -1,0 +1,4 @@
+controller,reached,crashed,time_s,min_clearance_m
+PD controller,1.0,1.0,6.033,-1.043
+MPPI + learned model,1.0,0.0,7.583,1.967
+MPPI + true model,1.0,0.0,7.7,1.965
