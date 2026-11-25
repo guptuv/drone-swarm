@@ -22,7 +22,7 @@ class QuadrotorDynamics:
     def __init__(self, n, mass=1.2, thrust_to_weight=2.2, tilt_max_deg=35.0, tau_att=0.15,
                  k_drag=0.25, battery_wh=60.0, hover_power_w=180.0):
         self.n, self.m = n, mass
-        self.T_max = thrust_to_weight * mass * G
+        self.T_max = np.full(n, thrust_to_weight * mass * G)      # per drone (fault injection)
         self.tilt_max = np.deg2rad(tilt_max_deg)
         self.tau, self.k_drag = tau_att, k_drag
         self.zb = np.tile([0.0, 0.0, 1.0], (n, 1))       # body z-axis (thrust direction)

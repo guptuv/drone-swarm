@@ -12,4 +12,4 @@ from .consensus import run_consensus, leader_follower, algebraic_connectivity
 from .allocation import auction_allocation, greedy_nearest, random_allocation
 from .viz import animate_swarm, plot_metrics, animate_sar, draw_building
 
-__version__ = "2.0.0"
+__version__ = "3.0.0"
